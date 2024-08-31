@@ -24,6 +24,7 @@
 |-------------------------|:---------------------------------------------------------------------------:|
 | **API_ID / API_HASH**   | Platform data from which to run the Telegram session (by default - android) |
 | **SLEEP_TIME**          |           Sleep time between cycles (by default - [7200, 10800])            |
+| **START_DELAY**         |            Delay between sessions at start (by default - [5, 25])           |
 | **AUTO_TASK**           |                         Auto tasks (default - True)                         |
 | **JOIN_CHANNELS**       |              Auto-join for tg channels tasks (default - True)               |
 | **REF_ID**              |                          Ref link for registration                          |
