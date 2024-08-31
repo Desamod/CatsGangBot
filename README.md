@@ -101,7 +101,7 @@ You can also use arguments for quick start, for example:
 ```
 
 ### Usages
-When you first launch the bot, create a session for it using the 'Creates a session' command. It will create a 'sessions' folder in which all accounts will be stored, as well as a file account.json with configurations.
+When you first launch the bot, create a session for it using the 'Creates a session' command. It will create a 'sessions' folder in which all accounts will be stored, as well as a file accounts.json with configurations.
 If you already have sessions, simply place them in a folder 'sessions' and run the clicker. During the startup process you will be able to configure the use of a proxy for each session.
 User-Agent is created automatically for each account.
 
