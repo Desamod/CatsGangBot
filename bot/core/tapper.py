@@ -177,10 +177,14 @@ class Tapper:
 
     async def processing_tasks(self, http_client: aiohttp.ClientSession):
         try:
-            response = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=cats")
-            response.raise_for_status()
-            response_json = await response.json()
-            tasks = response_json['tasks']
+            cats = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=cats")
+            cats.raise_for_status()
+            cats_json = await cats.json()
+            bitget = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=bitget")
+            bitget.raise_for_status()
+            bitget_json = await bitget.json()
+
+            tasks = cats_json['tasks'] + bitget_json['tasks']
             for task in tasks:
                 if not task['completed'] and not task['isPending'] and task['type'] not in settings.DISABLED_TASKS:
                     if task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
