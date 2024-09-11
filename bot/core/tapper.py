@@ -1,4 +1,6 @@
 import asyncio
+import os
+from datetime import datetime, timedelta
 from time import time
 from urllib.parse import unquote, quote
 
@@ -16,6 +18,8 @@ from bot.exceptions import InvalidSession
 from .headers import headers
 
 from random import randint, choices
+
+from ..utils.file_manager import get_random_cat_image
 
 
 class Tapper:
@@ -107,23 +111,9 @@ class Tapper:
             logger.error(f"{self.session_name} | Unknown error when logging: {error}")
             await asyncio.sleep(delay=randint(3, 7))
 
-    async def get_info_data(self, http_client: aiohttp.ClientSession):
-        try:
-            response = await http_client.get(f"https://fintopio-tg.fintopio.com/api/fast/init")
-            response.raise_for_status()
-            response_json = await response.json()
-
-            code = self.start_param.split('_')[1].split('-')[0]
-            await http_client.post(f"https://fintopio-tg.fintopio.com/api/referrals/activate", json={"code": code})
-            return response_json
-
-        except Exception as error:
-            logger.error(f"{self.session_name} | Unknown error when getting user info data: {error}")
-            await asyncio.sleep(delay=randint(3, 7))
-
     async def check_proxy(self, http_client: aiohttp.ClientSession, proxy: Proxy) -> None:
         try:
-            response = await http_client.get(url='https://ipinfo.io/ip', timeout=aiohttp.ClientTimeout(10))
+            response = await http_client.get(url='https://ipinfo.io/ip', timeout=aiohttp.ClientTimeout(20))
             ip = (await response.text())
             logger.info(f"{self.session_name} | Proxy IP: {ip}")
         except Exception as error:
@@ -155,24 +145,6 @@ class Tapper:
                 await self.tg_client.disconnect()
         except Exception as error:
             logger.error(f"{self.session_name} | Error while join tg channel: {error}")
-            await asyncio.sleep(delay=3)
-
-    async def try_claim_daily(self, http_client: aiohttp.ClientSession):
-        try:
-            response = await http_client.get('https://fintopio-tg.fintopio.com/api/referrals/data')
-            response.raise_for_status()
-            response_json = await response.json()
-            if response_json['isDailyRewardClaimed'] is False:
-                response = await http_client.post('https://fintopio-tg.fintopio.com/api/daily-checkins', json={})
-                response.raise_for_status()
-                response_json = await response.json()
-                reward = response_json['dailyReward']
-                total_days = response_json['totalDays']
-                logger.success(f"{self.session_name} | Daily Claimed! | Reward: <e>{reward}</e> |"
-                               f" Day count: <g>{total_days}</g>")
-
-        except Exception as error:
-            logger.error(f"{self.session_name} | Unknown error when Daily Claiming: {error}")
             await asyncio.sleep(delay=3)
 
     async def processing_tasks(self, http_client: aiohttp.ClientSession):
@@ -224,12 +196,50 @@ class Tapper:
             logger.error(f"{self.session_name} | Unknown error while verifying task {task_id} | Error: {e}")
             await asyncio.sleep(delay=3)
 
+    async def get_avatar_info(self, http_client: aiohttp.ClientSession):
+        try:
+            response = await http_client.get('https://cats-backend-cxblew-prod.up.railway.app/user/avatar')
+            response.raise_for_status()
+            response_json = await response.json()
+            return response_json
+
+        except Exception as e:
+            logger.error(f"{self.session_name} | Unknown error while getting avatar info | Error: {e}")
+            await asyncio.sleep(delay=3)
+
+    def generate_random_string(self, length=8):
+        characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+        random_string = ''
+        for _ in range(length):
+            random_index = int((len(characters) * int.from_bytes(os.urandom(1), 'big')) / 256)
+            random_string += characters[random_index]
+        return random_string
+
+    async def processing_avatar_task(self, http_client: aiohttp.ClientSession):
+        try:
+            cat_image = await get_random_cat_image(session_name=self.session_name)
+            hash_id = self.generate_random_string(length=16)
+            http_client.headers['Content-Type'] = f'multipart/form-data; boundary=----WebKitFormBoundary{hash_id}'
+            data = (f'------WebKitFormBoundary{hash_id}\r\n'.encode('utf-8') + cat_image +
+                    f'\r\n------WebKitFormBoundary{hash_id}--\r\n'.encode('utf-8'))
+            response = await http_client.post('https://cats-backend-cxblew-prod.up.railway.app/user/avatar/upgrade',
+                                              data=data)
+            http_client.headers['Content-Type'] = headers['Content-Type']
+            response.raise_for_status()
+            response_json = await response.json()
+            logger.info(f"{self.session_name} | Avatar task completed! | Reward: <e>+{response_json['rewards']}</e> CATS")
+            return response_json
+
+        except Exception as e:
+            logger.error(f"{self.session_name} | Unknown error while processing avatar task | Error: {e}")
+            await asyncio.sleep(delay=3)
+
     async def run(self, user_agent: str, proxy: str | None) -> None:
         access_token_created_time = 0
         proxy_conn = ProxyConnector().from_url(proxy) if proxy else None
         headers["User-Agent"] = user_agent
 
-        async with aiohttp.ClientSession(headers=headers, connector=proxy_conn) as http_client:
+        async with aiohttp.ClientSession(headers=headers, connector=proxy_conn, trust_env=True) as http_client:
             if proxy:
                 await self.check_proxy(http_client=http_client, proxy=proxy)
 
@@ -253,6 +263,18 @@ class Tapper:
                         if settings.AUTO_TASK:
                             await asyncio.sleep(delay=randint(5, 10))
                             await self.processing_tasks(http_client=http_client)
+
+                        if settings.AVATAR_TASK:
+                            avatar_info = await self.get_avatar_info(http_client=http_client)
+                            if avatar_info:
+                                attempt_time = None
+                                if avatar_info['attemptTime'] is not None:
+                                    attempt_time = avatar_info['attemptTime']
+                                    parsed_time = datetime.strptime(attempt_time,'%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+                                    delta_time = datetime.utcnow().timestamp() - parsed_time
+                                if attempt_time is None or delta_time > timedelta(hours=24).total_seconds():
+                                    await asyncio.sleep(delay=randint(5, 10))
+                                    await self.processing_avatar_task(http_client=http_client)
 
                         logger.info(f"{self.session_name} | Sleep <y>{round(sleep_time / 60, 1)}</y> min")
                         await asyncio.sleep(delay=sleep_time)

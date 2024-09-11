@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     START_DELAY: list[int] = [5, 25]
     AUTO_TASK: bool = True
     JOIN_TG_CHANNELS: bool = True
+    AVATAR_TASK: bool = True
+    CATS_PATH: str = 'cats'
     REF_ID: str = 'tU1c2BRmdm4h46hs8FXDO'
     DISABLED_TASKS: list[str] = ['INVITE_FRIENDS', 'TON_TRANSACTION', 'BOOST_CHANNEL', 'ACTIVITY_CHALLENGE', 'CONNECT_WALLET']
 
