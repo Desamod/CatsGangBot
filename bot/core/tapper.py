@@ -27,6 +27,7 @@ class Tapper:
         self.tg_client = tg_client
         self.session_name = tg_client.name
         self.start_param = ''
+        self.name = ''
 
     async def get_tg_web_data(self, proxy: str | None) -> str:
         if proxy:
@@ -79,6 +80,8 @@ class Tapper:
             init_data = (f"user={user_data_encoded}&chat_instance={chat_instance}&chat_type={chat_type}&"
                          f"start_param={start_param}&auth_date={auth_date}&hash={hash_value}")
 
+            me = await self.tg_client.get_me()
+            self.name = me.first_name
             if self.tg_client.is_connected:
                 await self.tg_client.disconnect()
 
@@ -93,7 +96,8 @@ class Tapper:
 
     async def login(self, http_client: aiohttp.ClientSession):
         try:
-            response = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/user")
+            response = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/user",
+                                             timeout=aiohttp.ClientTimeout(60))
 
             if response.status == 404:
                 response = await http_client.post("https://cats-backend-cxblew-prod.up.railway.app/user/create",
@@ -156,10 +160,26 @@ class Tapper:
             bitget.raise_for_status()
             bitget_json = await bitget.json()
 
-            tasks = cats_json['tasks'] + bitget_json['tasks']
+            okx = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=okx")
+            okx.raise_for_status()
+            okx_json = await okx.json()
+
+            tasks = cats_json['tasks'] + bitget_json['tasks'] + okx_json['tasks']
             for task in tasks:
                 if not task['completed'] and not task['isPending'] and task['type'] not in settings.DISABLED_TASKS:
-                    if task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
+                    if task['type'] == 'NICKNAME_CHANGE':
+                        if '🐈‍⬛' in self.name:
+                            result = await self.verify_task(http_client, task['id'], endpoint='check')
+                            if result:
+                                logger.info(f"{self.session_name} | Removing 🐈 from nickname")
+                                name = self.name.split('🐈‍⬛')[0]
+                                await self.change_tg_nickname(name=name)
+                        else:
+                            logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
+                            cat_name = f'{self.name}🐈‍⬛'
+                            await self.change_tg_nickname(name=cat_name)
+                            continue
+                    elif task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
                         url = task['params']['channelUrl']
                         logger.info(f"{self.session_name} | Performing TG subscription to <lc>{url}</lc>")
                         await self.join_tg_channel(url)
@@ -176,7 +196,7 @@ class Tapper:
 
                     await asyncio.sleep(delay=randint(5, 10))
 
-                if task['isPending']:
+                elif task['isPending']:
                     logger.info(f"{self.session_name} | Task <lc>{task['title']}</lc> is pending")
 
         except Exception as error:
@@ -186,7 +206,7 @@ class Tapper:
     async def verify_task(self, http_client: aiohttp.ClientSession, task_id: str, endpoint: str):
         try:
             response = await http_client.post(f'https://cats-backend-cxblew-prod.up.railway.app/tasks'
-                                              f'/{task_id}/{endpoint}', json={})
+                                              f'/{task_id}/{endpoint}', json={}, timeout=aiohttp.ClientTimeout(60))
             response.raise_for_status()
             response_json = await response.json()
             status = response_json.get('success', False) or response_json.get('completed', False)
@@ -227,12 +247,27 @@ class Tapper:
             http_client.headers['Content-Type'] = headers['Content-Type']
             response.raise_for_status()
             response_json = await response.json()
-            logger.info(f"{self.session_name} | Avatar task completed! | Reward: <e>+{response_json['rewards']}</e> CATS")
+            logger.info(
+                f"{self.session_name} | Avatar task completed! | Reward: <e>+{response_json['rewards']}</e> CATS")
             return response_json
 
         except Exception as e:
             logger.error(f"{self.session_name} | Unknown error while processing avatar task | Error: {e}")
             await asyncio.sleep(delay=3)
+
+    async def change_tg_nickname(self, name: str):
+        try:
+            if not self.tg_client.is_connected:
+                await self.tg_client.connect()
+
+            await self.tg_client.update_profile(first_name=name)
+            logger.info(f"{self.session_name} | Nickname changed to <lc>{name}</lc>")
+        except Exception as error:
+            logger.error(
+                f"<light-yellow>{self.session_name}</light-yellow> | Error updating profile nickname: {error}")
+        finally:
+            if self.tg_client.is_connected:
+                await self.tg_client.disconnect()
 
     async def run(self, user_agent: str, proxy: str | None) -> None:
         access_token_created_time = 0
@@ -246,6 +281,7 @@ class Tapper:
             token_live_time = randint(3500, 3600)
             while True:
                 try:
+                    sleep_time = randint(settings.SLEEP_TIME[0], settings.SLEEP_TIME[1])
                     if time() - access_token_created_time >= token_live_time:
                         tg_web_data = await self.get_tg_web_data(proxy=proxy)
                         if tg_web_data is None:
@@ -253,9 +289,13 @@ class Tapper:
 
                         http_client.headers["Authorization"] = "tma " + tg_web_data
                         user_info = await self.login(http_client=http_client)
+                        if user_info is None:
+                            token_live_time = 0
+                            await asyncio.sleep(randint(1000, 1800))
+                            continue
+
                         access_token_created_time = time()
                         token_live_time = randint(3500, 3600)
-                        sleep_time = randint(settings.SLEEP_TIME[0], settings.SLEEP_TIME[1])
 
                         balance = user_info['totalRewards']
                         logger.info(f"{self.session_name} | Balance: <e>{balance}</e> CATS")
@@ -264,20 +304,23 @@ class Tapper:
                             await asyncio.sleep(delay=randint(5, 10))
                             await self.processing_tasks(http_client=http_client)
 
-                        if settings.AVATAR_TASK:
-                            avatar_info = await self.get_avatar_info(http_client=http_client)
-                            if avatar_info:
-                                attempt_time = None
-                                if avatar_info['attemptTime'] is not None:
-                                    attempt_time = avatar_info['attemptTime']
-                                    parsed_time = datetime.strptime(attempt_time,'%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
-                                    delta_time = datetime.utcnow().timestamp() - parsed_time
-                                if attempt_time is None or delta_time > timedelta(hours=24).total_seconds():
-                                    await asyncio.sleep(delay=randint(5, 10))
-                                    await self.processing_avatar_task(http_client=http_client)
+                    if settings.AVATAR_TASK:
+                        avatar_info = await self.get_avatar_info(http_client=http_client)
+                        if avatar_info:
+                            attempt_time = None
+                            if avatar_info['attemptTime'] is not None:
+                                attempt_time = avatar_info['attemptTime']
+                                parsed_time = datetime.strptime(attempt_time, '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
+                                delta_time = datetime.utcnow().timestamp() - parsed_time
+                                next_attempt_time = delta_time - timedelta(hours=24).total_seconds()
+                            if attempt_time is None or next_attempt_time > 0:
+                                await asyncio.sleep(delay=randint(5, 10))
+                                await self.processing_avatar_task(http_client=http_client)
+                            elif next_attempt_time < 0:
+                                sleep_time = min(sleep_time, abs(int(next_attempt_time)))
 
-                        logger.info(f"{self.session_name} | Sleep <y>{round(sleep_time / 60, 1)}</y> min")
-                        await asyncio.sleep(delay=sleep_time)
+                    logger.info(f"{self.session_name} | Sleep <y>{round(sleep_time / 60, 1)}</y> min")
+                    await asyncio.sleep(delay=sleep_time)
 
                 except InvalidSession as error:
                     raise error
