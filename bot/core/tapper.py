@@ -96,11 +96,11 @@ class Tapper:
 
     async def login(self, http_client: aiohttp.ClientSession):
         try:
-            response = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/user",
+            response = await http_client.get("https://api.catshouse.club/user",
                                              timeout=aiohttp.ClientTimeout(60))
 
             if response.status == 404:
-                response = await http_client.post("https://cats-backend-cxblew-prod.up.railway.app/user/create",
+                response = await http_client.post("https://api.catshouse.club/user/create",
                                                   params={"referral_code": self.start_param})
                 response.raise_for_status()
                 logger.success(f"{self.session_name} | User successfully registered!")
@@ -153,14 +153,14 @@ class Tapper:
 
     async def processing_tasks(self, http_client: aiohttp.ClientSession):
         try:
-            cats = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=cats")
+            cats = await http_client.get("https://api.catshouse.club/tasks/user?group=cats")
             cats.raise_for_status()
             cats_json = await cats.json()
-            bitget = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=bitget")
+            bitget = await http_client.get("https://api.catshouse.club/tasks/user?group=bitget")
             bitget.raise_for_status()
             bitget_json = await bitget.json()
 
-            okx = await http_client.get("https://cats-backend-cxblew-prod.up.railway.app/tasks/user?group=okx")
+            okx = await http_client.get("https://api.catshouse.club/tasks/user?group=okx")
             okx.raise_for_status()
             okx_json = await okx.json()
 
@@ -205,7 +205,7 @@ class Tapper:
 
     async def verify_task(self, http_client: aiohttp.ClientSession, task_id: str, endpoint: str):
         try:
-            response = await http_client.post(f'https://cats-backend-cxblew-prod.up.railway.app/tasks'
+            response = await http_client.post(f'https://api.catshouse.club/tasks'
                                               f'/{task_id}/{endpoint}', json={}, timeout=aiohttp.ClientTimeout(60))
             response.raise_for_status()
             response_json = await response.json()
@@ -218,7 +218,7 @@ class Tapper:
 
     async def get_avatar_info(self, http_client: aiohttp.ClientSession):
         try:
-            response = await http_client.get('https://cats-backend-cxblew-prod.up.railway.app/user/avatar')
+            response = await http_client.get('https://api.catshouse.club/user/avatar')
             response.raise_for_status()
             response_json = await response.json()
             return response_json
@@ -242,7 +242,7 @@ class Tapper:
             http_client.headers['Content-Type'] = f'multipart/form-data; boundary=----WebKitFormBoundary{hash_id}'
             data = (f'------WebKitFormBoundary{hash_id}\r\n'.encode('utf-8') + cat_image +
                     f'\r\n------WebKitFormBoundary{hash_id}--\r\n'.encode('utf-8'))
-            response = await http_client.post('https://cats-backend-cxblew-prod.up.railway.app/user/avatar/upgrade',
+            response = await http_client.post('https://api.catshouse.club/user/avatar/upgrade',
                                               data=data)
             http_client.headers['Content-Type'] = headers['Content-Type']
             response.raise_for_status()
