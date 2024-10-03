@@ -19,6 +19,7 @@ from .headers import headers
 
 from random import randint, choices
 
+from ..config.youtube_tasks import YOUTUBE_TASKS
 from ..utils.file_manager import get_random_cat_image
 
 
@@ -94,7 +95,7 @@ class Tapper:
             logger.error(f"{self.session_name} | Unknown error during Authorization: {error}")
             await asyncio.sleep(delay=3)
 
-    async def login(self, http_client: aiohttp.ClientSession):
+    async def login(self, http_client: aiohttp.ClientSession, retry=0):
         try:
             response = await http_client.get("https://api.catshouse.club/user",
                                              timeout=aiohttp.ClientTimeout(60))
@@ -112,6 +113,11 @@ class Tapper:
             return response_json
 
         except Exception as error:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't logging | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.login(http_client, retry=retry+1)
+
             logger.error(f"{self.session_name} | Unknown error when logging: {error}")
             await asyncio.sleep(delay=randint(3, 7))
 
@@ -151,59 +157,78 @@ class Tapper:
             logger.error(f"{self.session_name} | Error while join tg channel: {error}")
             await asyncio.sleep(delay=3)
 
+    async def get_all_tasks(self, http_client: aiohttp.ClientSession, groups: list[str], retry=0):
+        try:
+            tasks = []
+            for group in groups:
+                response = await http_client.get(f"https://api.catshouse.club/tasks/user?group={group}")
+                response.raise_for_status()
+                tasks_json = await response.json()
+                tasks += tasks_json.get('tasks')
+                await asyncio.sleep(delay=randint(1, 3))
+            return tasks
+        except Exception as error:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't getting tasks | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.get_all_tasks(http_client, groups, retry=retry+1)
+
+            logger.error(f"{self.session_name} | Unknown error when getting tasks: {error}")
+            await asyncio.sleep(delay=3)
+
     async def processing_tasks(self, http_client: aiohttp.ClientSession):
         try:
-            cats = await http_client.get("https://api.catshouse.club/tasks/user?group=cats")
-            cats.raise_for_status()
-            cats_json = await cats.json()
-            bitget = await http_client.get("https://api.catshouse.club/tasks/user?group=bitget")
-            bitget.raise_for_status()
-            bitget_json = await bitget.json()
-
-            okx = await http_client.get("https://api.catshouse.club/tasks/user?group=okx")
-            okx.raise_for_status()
-            okx_json = await okx.json()
-
-            tasks = cats_json['tasks'] + bitget_json['tasks'] + okx_json['tasks']
-            for task in tasks:
-                if not task['completed'] and not task['isPending'] and task['type'] not in settings.DISABLED_TASKS:
-                    if task['type'] == 'NICKNAME_CHANGE':
-                        if '🐈‍⬛' in self.name:
+            tasks = await self.get_all_tasks(http_client, ['cats', 'bitget', 'kukoin', 'okx'])
+            if tasks:
+                for task in tasks:
+                    if not task['completed'] and not task['isPending'] and task['type'] not in settings.DISABLED_TASKS:
+                        if task['type'] == 'NICKNAME_CHANGE':
+                            if '🐈‍⬛' in self.name:
+                                result = await self.verify_task(http_client, task['id'], endpoint='check')
+                                if result:
+                                    logger.info(f"{self.session_name} | Removing 🐈 from nickname")
+                                    name = self.name.split('🐈‍⬛')[0]
+                                    await self.change_tg_nickname(name=name)
+                            else:
+                                logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
+                                cat_name = f'{self.name}🐈‍⬛'
+                                await self.change_tg_nickname(name=cat_name)
+                                continue
+                        elif task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
+                            url = task['params']['channelUrl']
+                            logger.info(f"{self.session_name} | Performing TG subscription to <lc>{url}</lc>")
+                            await self.join_tg_channel(url)
                             result = await self.verify_task(http_client, task['id'], endpoint='check')
-                            if result:
-                                logger.info(f"{self.session_name} | Removing 🐈 from nickname")
-                                name = self.name.split('🐈‍⬛')[0]
-                                await self.change_tg_nickname(name=name)
+                        elif task['type'] == 'YOUTUBE_WATCH':
+                            logger.info(f'{self.session_name} | Performing Youtube <y>{task["title"]}</y>')
+                            answer = YOUTUBE_TASKS.get(task["title"], None)
+                            if answer:
+                                endpoint = f'complete?answer={answer}'
+                                await asyncio.sleep(delay=randint(30, 60))
+                                result = await self.verify_task(http_client, task['id'], endpoint=endpoint)
+                            else:
+                                logger.warning(f'{self.session_name} | Answer for task <y>{task["title"]}</y> not found')
+                                continue
                         else:
                             logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
-                            cat_name = f'{self.name}🐈‍⬛'
-                            await self.change_tg_nickname(name=cat_name)
-                            continue
-                    elif task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
-                        url = task['params']['channelUrl']
-                        logger.info(f"{self.session_name} | Performing TG subscription to <lc>{url}</lc>")
-                        await self.join_tg_channel(url)
-                        result = await self.verify_task(http_client, task['id'], endpoint='check')
-                    else:
-                        logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
-                        result = await self.verify_task(http_client, task['id'], endpoint='complete')
+                            result = await self.verify_task(http_client, task['id'], endpoint='complete')
 
-                    if result:
-                        logger.success(f"{self.session_name} | Task <lc>{task['title']}</lc> completed! |"
-                                       f" Reward: <e>+{task['rewardPoints']}</e> CATS")
-                    else:
-                        logger.info(f"{self.session_name} | Task <lc>{task['title']}</lc> not completed")
+                        if result:
+                            logger.success(f"{self.session_name} | Task <lc>{task['title']}</lc> completed! |"
+                                           f" Reward: <e>+{task['rewardPoints']}</e> CATS")
+                        else:
+                            logger.info(f"{self.session_name} | Task <lc>{task['title']}</lc> not completed")
 
-                    await asyncio.sleep(delay=randint(5, 10))
+                        await asyncio.sleep(delay=randint(5, 10))
 
-                elif task['isPending']:
-                    logger.info(f"{self.session_name} | Task <lc>{task['title']}</lc> is pending")
+                    elif task['isPending']:
+                        logger.info(f"{self.session_name} | Task <lc>{task['title']}</lc> is pending")
 
         except Exception as error:
             logger.error(f"{self.session_name} | Unknown error when processing tasks: {error}")
             await asyncio.sleep(delay=3)
 
-    async def verify_task(self, http_client: aiohttp.ClientSession, task_id: str, endpoint: str):
+    async def verify_task(self, http_client: aiohttp.ClientSession, task_id: str, endpoint: str, retry=0):
         try:
             response = await http_client.post(f'https://api.catshouse.club/tasks'
                                               f'/{task_id}/{endpoint}', json={}, timeout=aiohttp.ClientTimeout(60))
@@ -213,10 +238,15 @@ class Tapper:
             return status
 
         except Exception as e:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't verify task | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.verify_task(http_client, task_id, endpoint, retry=retry+1)
+
             logger.error(f"{self.session_name} | Unknown error while verifying task {task_id} | Error: {e}")
             await asyncio.sleep(delay=3)
 
-    async def get_avatar_info(self, http_client: aiohttp.ClientSession):
+    async def get_avatar_info(self, http_client: aiohttp.ClientSession, retry=0):
         try:
             response = await http_client.get('https://api.catshouse.club/user/avatar')
             response.raise_for_status()
@@ -224,7 +254,28 @@ class Tapper:
             return response_json
 
         except Exception as e:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't getting avatar info | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.get_avatar_info(http_client, retry=retry+1)
+
             logger.error(f"{self.session_name} | Unknown error while getting avatar info | Error: {e}")
+            await asyncio.sleep(delay=3)
+
+    async def check_available(self, http_client: aiohttp.ClientSession, retry=0):
+        try:
+            response = await http_client.get('https://api.catshouse.club/exchange-claim/check-available')
+            response.raise_for_status()
+            response_json = await response.json()
+            return response_json
+
+        except Exception as e:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't getting airdrop data | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.check_available(http_client, retry=retry+1)
+
+            logger.error(f"{self.session_name} | Unknown error while getting airdrop data | Error: {e}")
             await asyncio.sleep(delay=3)
 
     def generate_random_string(self, length=8):
@@ -299,6 +350,13 @@ class Tapper:
 
                         balance = user_info['totalRewards']
                         logger.info(f"{self.session_name} | Balance: <e>{balance}</e> CATS")
+                        result = await self.check_available(http_client=http_client)
+                        if result:
+                            logger.info(f'{self.session_name} '
+                                        f'| Has free pass: <lc>{result.get("hasFreePass")}</lc> '
+                                        f'| Has OG pass: <lc>{result.get("hasOgPass")}</lc> '
+                                        f'| Has transaction: <lc>{result.get("hasTransaction")}</lc> '
+                                        f'| Is available for Airdrop: <e>{result.get("isAvailable")}</e>')
 
                         if settings.AUTO_TASK:
                             await asyncio.sleep(delay=randint(5, 10))
@@ -306,6 +364,8 @@ class Tapper:
 
                     if settings.AVATAR_TASK:
                         avatar_info = await self.get_avatar_info(http_client=http_client)
+                        og_pass = user_info.get('hasOgPass', False)
+                        logger.info(f"{self.session_name} | OG Pass: <y>{og_pass}</y>")
                         if avatar_info:
                             attempt_time = None
                             if avatar_info['attemptTime'] is not None:
@@ -313,9 +373,13 @@ class Tapper:
                                 parsed_time = datetime.strptime(attempt_time, '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
                                 delta_time = datetime.utcnow().timestamp() - parsed_time
                                 next_attempt_time = delta_time - timedelta(hours=24).total_seconds()
-                            if attempt_time is None or next_attempt_time > 0:
-                                await asyncio.sleep(delay=randint(5, 10))
-                                await self.processing_avatar_task(http_client=http_client)
+                                max_attempts = 3 if og_pass else 1
+                                used_attempts = avatar_info['attemptsUsed'] if next_attempt_time < 0 else 0
+                            if attempt_time is None or used_attempts < max_attempts:
+                                for attempt in range(max_attempts - used_attempts):
+                                    await asyncio.sleep(delay=randint(5, 10))
+                                    await self.processing_avatar_task(http_client=http_client)
+
                             elif next_attempt_time < 0:
                                 sleep_time = min(sleep_time, abs(int(next_attempt_time)))
 
@@ -331,8 +395,12 @@ class Tapper:
 
 
 def get_link_code() -> str:
-    return bytes([116, 85, 49, 99, 50, 66, 82, 109, 100, 109, 52, 104, 52, 54, 104,
-                  115, 56, 70, 88, 68, 79]).decode("utf-8")
+    codes = [[116, 85, 49, 99, 50, 66, 82, 109, 100, 109, 52, 104, 52, 54, 104, 115, 56, 70, 88, 68, 79],
+             [100, 122, 114, 104, 89, 54, 74, 52, 116, 88, 74, 115, 108, 108, 49, 87, 106, 84, 75, 69, 80],
+             [104, 114, 103, 66, 82, 51, 52, 50, 99, 108, 80, 109, 71, 87, 51, 110, 118, 54, 54, 82, 101],
+             [98, 73, 87, 106, 115, 85, 120, 109, 108, 99, 56, 81, 82, 107, 77, 109, 83, 102, 75, 66, 86]]
+    code = choices(codes)[0]
+    return bytes(code).decode("utf-8")
 
 
 async def run_tapper(tg_client: Client, user_agent: str, proxy: str | None):
