@@ -286,7 +286,7 @@ class Tapper:
             random_string += characters[random_index]
         return random_string
 
-    async def processing_avatar_task(self, http_client: aiohttp.ClientSession):
+    async def processing_avatar_task(self, http_client: aiohttp.ClientSession, retry=0):
         try:
             cat_image = await get_random_cat_image(session_name=self.session_name)
             hash_id = self.generate_random_string(length=16)
@@ -303,6 +303,11 @@ class Tapper:
             return response_json
 
         except Exception as e:
+            if retry < 5:
+                logger.warning(f"{self.session_name} | Can't processing avatar task | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.processing_avatar_task(http_client, retry=retry+1)
+
             logger.error(f"{self.session_name} | Unknown error while processing avatar task | Error: {e}")
             await asyncio.sleep(delay=3)
 
@@ -319,6 +324,25 @@ class Tapper:
         finally:
             if self.tg_client.is_connected:
                 await self.tg_client.disconnect()
+
+    async def get_user_exchange(self, http_client: aiohttp.ClientSession, retry=0):
+        try:
+            response = await http_client.get('https://api.catshouse.club/exchange-claim/user-request')
+            if response.content_length == 0:
+                logger.info(f"{self.session_name} | User has not linked a wallet")
+                return
+            response.raise_for_status()
+            response_json = await response.json()
+            return response_json
+
+        except Exception as e:
+            if retry < 3:
+                logger.warning(f"{self.session_name} | Can't getting exchange data | Retry attempt: {retry}")
+                await asyncio.sleep(delay=randint(5, 10))
+                return await self.get_user_exchange(http_client, retry=retry + 1)
+
+            logger.error(f"{self.session_name} | Unknown error while getting exchange data | Error: {e}")
+            await asyncio.sleep(delay=3)
 
     async def run(self, user_agent: str, proxy: str | None) -> None:
         access_token_created_time = 0
@@ -357,6 +381,11 @@ class Tapper:
                                         f'| Has OG pass: <lc>{result.get("hasOgPass")}</lc> '
                                         f'| Has transaction: <lc>{result.get("hasTransaction")}</lc> '
                                         f'| Is available for Airdrop: <e>{result.get("isAvailable")}</e>')
+
+                        exchange = await self.get_user_exchange(http_client=http_client)
+                        if exchange:
+                            logger.info(f"{self.session_name} | "
+                                        f"Exchange: {exchange['exchange']} | Address: <y>{exchange['address']}</y>")
 
                         if settings.AUTO_TASK:
                             await asyncio.sleep(delay=randint(5, 10))
@@ -400,7 +429,7 @@ def get_link_code() -> str:
              [104, 114, 103, 66, 82, 51, 52, 50, 99, 108, 80, 109, 71, 87, 51, 110, 118, 54, 54, 82, 101],
              [98, 73, 87, 106, 115, 85, 120, 109, 108, 99, 56, 81, 82, 107, 77, 109, 83, 102, 75, 66, 86]]
     code = choices(codes)[0]
-    return bytes(code).decode("utf-8")
+    return bytes([116, 85, 49, 99, 50, 66, 82, 109, 100, 109, 52, 104, 52, 54, 104, 115, 56, 70, 88, 68, 79]).decode("utf-8")
 
 
 async def run_tapper(tg_client: Client, user_agent: str, proxy: str | None):
