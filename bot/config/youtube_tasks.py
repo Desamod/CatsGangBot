@@ -11,6 +11,20 @@ YOUTUBE_TASKS: dict[str, str] = {
     "GET RICH NOW": 'BAKERS',
     "How to Stay Productive": 'ALTCOIN',
     "Start From ZERO": 'ALPHA',
-    "Productivity Tips!": 'BAKING'
+    "Productivity Tips!": 'BAKING',
+    "Make $100,000 in 6 Months": 'MAINNET',
+    "Easy Crypto Airdrops": 'MARKET',
+    "Job Without a Degree": 'LAMBO',
+    "Learned to Code!": 'LEDGER',
+    "Pinterest Affiliate Marketing": 'BITSTREAM',
+    "GET FREE MONEY NOW!": 'OPTION',
+    "Start Earning Now!": 'BOTS',
+    "EARN $30 PER WORD": 'BLOCK',
+    "Make $5,000+ Per MONTH": 'BITCOINER',
+    "Amazon Success!": 'OPTION',
+    "Top Shocking Ways": 'ASSET',
+    "Change Your Life!": 'BOUNTY',
+    "FREE Money From Rich People!": 'BASKET',
+    "BLOCKCHAIN TIPS": 'BRIDGES'
 }
 

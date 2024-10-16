@@ -1,7 +1,7 @@
 headers = {
-    'Accept': 'application/json, text/plain, */*',
+    'Accept': '*/*',
     'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-    'Accept-Encoding': 'gzip, deflate, zstd',
+    'Accept-Encoding': 'br',
     'Content-Type': 'application/json',
     'Connection': 'keep-alive',
     'Origin': 'https://cats-frontend.tgapps.store',

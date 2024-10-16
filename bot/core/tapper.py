@@ -1,10 +1,12 @@
 import asyncio
+import json
 import os
 from datetime import datetime, timedelta
 from time import time
 from urllib.parse import unquote, quote
 
 import aiohttp
+import brotli
 from aiohttp_proxy import ProxyConnector
 from better_proxy import Proxy
 from pyrogram import Client
@@ -109,7 +111,9 @@ class Tapper:
                 return await self.login(http_client)
 
             response.raise_for_status()
-            response_json = await response.json()
+            response_bytes = await response.read()
+            response_text = brotli.decompress(response_bytes)
+            response_json = json.loads(response_text.decode('utf-8'))
             return response_json
 
         except Exception as error:
@@ -163,7 +167,9 @@ class Tapper:
             for group in groups:
                 response = await http_client.get(f"https://api.catshouse.club/tasks/user?group={group}")
                 response.raise_for_status()
-                tasks_json = await response.json()
+                response_bytes = await response.read()
+                response_text = brotli.decompress(response_bytes)
+                tasks_json = json.loads(response_text.decode('utf-8'))
                 tasks += tasks_json.get('tasks')
                 await asyncio.sleep(delay=randint(1, 3))
             return tasks
@@ -250,7 +256,9 @@ class Tapper:
         try:
             response = await http_client.get('https://api.catshouse.club/user/avatar')
             response.raise_for_status()
-            response_json = await response.json()
+            response_bytes = await response.read()
+            response_text = brotli.decompress(response_bytes)
+            response_json = json.loads(response_text.decode('utf-8'))
             return response_json
 
         except Exception as e:
@@ -266,7 +274,9 @@ class Tapper:
         try:
             response = await http_client.get('https://api.catshouse.club/exchange-claim/check-available')
             response.raise_for_status()
-            response_json = await response.json()
+            response_bytes = await response.read()
+            response_text = brotli.decompress(response_bytes)
+            response_json = json.loads(response_text.decode('utf-8'))
             return response_json
 
         except Exception as e:
@@ -297,7 +307,9 @@ class Tapper:
                                               data=data)
             http_client.headers['Content-Type'] = headers['Content-Type']
             response.raise_for_status()
-            response_json = await response.json()
+            response_bytes = await response.read()
+            response_text = brotli.decompress(response_bytes)
+            response_json = json.loads(response_text.decode('utf-8'))
             logger.info(
                 f"{self.session_name} | Avatar task completed! | Reward: <e>+{response_json['rewards']}</e> CATS")
             return response_json
@@ -332,7 +344,9 @@ class Tapper:
                 logger.info(f"{self.session_name} | User has not linked a wallet")
                 return
             response.raise_for_status()
-            response_json = await response.json()
+            response_bytes = await response.read()
+            response_text = brotli.decompress(response_bytes)
+            response_json = json.loads(response_text.decode('utf-8'))
             return response_json
 
         except Exception as e:
@@ -349,7 +363,7 @@ class Tapper:
         proxy_conn = ProxyConnector().from_url(proxy) if proxy else None
         headers["User-Agent"] = user_agent
 
-        async with aiohttp.ClientSession(headers=headers, connector=proxy_conn, trust_env=True) as http_client:
+        async with aiohttp.ClientSession(headers=headers, connector=proxy_conn, trust_env=True, auto_decompress=False) as http_client:
             if proxy:
                 await self.check_proxy(http_client=http_client, proxy=proxy)
 
