@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     JOIN_TG_CHANNELS: bool = True
     AVATAR_TASK: bool = True
     CATS_PATH: str = 'cats'
-    REF_ID: str = 'tU1c2BRmdm4h46hs8FXDO'
+    REF_ID: str = 'IRJ3Ytoz3Cmi8Gac-BXFO'
     DISABLED_TASKS: list[str] = ['INVITE_FRIENDS', 'TON_TRANSACTION', 'BOOST_CHANNEL', 'ACTIVITY_CHALLENGE', 'CONNECT_WALLET']
 
 
