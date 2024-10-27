@@ -3,99 +3,31 @@ import json
 import os
 from datetime import datetime, timedelta
 from time import time
-from urllib.parse import unquote, quote
+
 
 import aiohttp
 import brotli
 from aiohttp_proxy import ProxyConnector
 from better_proxy import Proxy
-from pyrogram import Client
-from pyrogram.errors import Unauthorized, UserDeactivated, AuthKeyUnregistered
-from pyrogram.raw import types
-from pyrogram.raw.functions.messages import RequestAppWebView
 from bot.config import settings
 
 from bot.utils import logger
 from bot.exceptions import InvalidSession
 from .headers import headers
 
-from random import randint, choices
+from random import randint
 
 from ..config.youtube_tasks import YOUTUBE_TASKS
 from ..utils.file_manager import get_random_cat_image
+from ..utils.tg_manager.TGSession import TGSession
 
 
 class Tapper:
-    def __init__(self, tg_client: Client):
-        self.tg_client = tg_client
-        self.session_name = tg_client.name
+    def __init__(self, tg_session: TGSession):
+        self.tg_session = tg_session
+        self.session_name = tg_session.session_name
         self.start_param = ''
         self.name = ''
-
-    async def get_tg_web_data(self, proxy: str | None) -> str:
-        if proxy:
-            proxy = Proxy.from_str(proxy)
-            proxy_dict = dict(
-                scheme=proxy.protocol,
-                hostname=proxy.host,
-                port=proxy.port,
-                username=proxy.login,
-                password=proxy.password
-            )
-        else:
-            proxy_dict = None
-
-        self.tg_client.proxy = proxy_dict
-
-        try:
-            if not self.tg_client.is_connected:
-                try:
-                    await self.tg_client.connect()
-
-                except (Unauthorized, UserDeactivated, AuthKeyUnregistered):
-                    raise InvalidSession(self.session_name)
-
-            peer = await self.tg_client.resolve_peer('catsgang_bot')
-            link = choices([settings.REF_ID, get_link_code()], weights=[40, 60], k=1)[0]
-            web_view = await self.tg_client.invoke(RequestAppWebView(
-                peer=peer,
-                platform='android',
-                app=types.InputBotAppShortName(bot_id=peer, short_name="join"),
-                write_allowed=True,
-                start_param=link
-            ))
-
-            auth_url = web_view.url
-
-            tg_web_data = unquote(
-                string=unquote(string=auth_url.split('tgWebAppData=')[1].split('&tgWebAppVersion')[0]))
-            tg_web_data_parts = tg_web_data.split('&')
-
-            user_data = tg_web_data_parts[0].split('=')[1]
-            chat_instance = tg_web_data_parts[1].split('=')[1]
-            chat_type = tg_web_data_parts[2].split('=')[1]
-            start_param = tg_web_data_parts[3].split('=')[1]
-            auth_date = tg_web_data_parts[4].split('=')[1]
-            hash_value = tg_web_data_parts[5].split('=')[1]
-
-            user_data_encoded = quote(user_data)
-            self.start_param = start_param
-            init_data = (f"user={user_data_encoded}&chat_instance={chat_instance}&chat_type={chat_type}&"
-                         f"start_param={start_param}&auth_date={auth_date}&hash={hash_value}")
-
-            me = await self.tg_client.get_me()
-            self.name = me.first_name
-            if self.tg_client.is_connected:
-                await self.tg_client.disconnect()
-
-            return init_data
-
-        except InvalidSession as error:
-            raise error
-
-        except Exception as error:
-            logger.error(f"{self.session_name} | Unknown error during Authorization: {error}")
-            await asyncio.sleep(delay=3)
 
     async def login(self, http_client: aiohttp.ClientSession, retry=0):
         try:
@@ -133,34 +65,6 @@ class Tapper:
         except Exception as error:
             logger.error(f"{self.session_name} | Proxy: {proxy} | Error: {error}")
 
-    async def join_tg_channel(self, link: str):
-        if not self.tg_client.is_connected:
-            try:
-                await self.tg_client.connect()
-            except Exception as error:
-                logger.error(f"{self.session_name} | Error while TG connecting: {error}")
-
-        try:
-            parsed_link = link if 'https://t.me/+' in link else link[13:]
-            chat = await self.tg_client.get_chat(parsed_link)
-            logger.info(f"{self.session_name} | Get channel: <y>{chat.username}</y>")
-            try:
-                await self.tg_client.get_chat_member(chat.username, "me")
-            except Exception as error:
-                if error.ID == 'USER_NOT_PARTICIPANT':
-                    logger.info(f"{self.session_name} | User not participant of the TG group: <y>{chat.username}</y>")
-                    await asyncio.sleep(delay=3)
-                    response = await self.tg_client.join_chat(parsed_link)
-                    logger.info(f"{self.session_name} | Joined to channel: <y>{response.username}</y>")
-                else:
-                    logger.error(f"{self.session_name} | Error while checking TG group: <y>{chat.username}</y>")
-
-            if self.tg_client.is_connected:
-                await self.tg_client.disconnect()
-        except Exception as error:
-            logger.error(f"{self.session_name} | Error while join tg channel: {error}")
-            await asyncio.sleep(delay=3)
-
     async def get_all_tasks(self, http_client: aiohttp.ClientSession, groups: list[str], retry=0):
         try:
             tasks = []
@@ -194,17 +98,20 @@ class Tapper:
                                 if result:
                                     logger.info(f"{self.session_name} | Removing 🐈 from nickname")
                                     name = self.name.split('🐈‍⬛')[0]
-                                    await self.change_tg_nickname(name=name)
+                                    await self.tg_session.change_tg_nickname(name=name)
                             else:
                                 logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
                                 cat_name = f'{self.name}🐈‍⬛'
-                                await self.change_tg_nickname(name=cat_name)
+                                await self.tg_session.change_tg_nickname(name=cat_name)
                                 continue
-                        elif task['type'] == 'SUBSCRIBE_TO_CHANNEL' and settings.JOIN_TG_CHANNELS:
+                        elif task['type'] == 'SUBSCRIBE_TO_CHANNEL':
+                            if not settings.JOIN_TG_CHANNELS:
+                                continue
                             url = task['params']['channelUrl']
                             logger.info(f"{self.session_name} | Performing TG subscription to <lc>{url}</lc>")
-                            await self.join_tg_channel(url)
+                            await self.tg_session.join_tg_channel(url)
                             result = await self.verify_task(http_client, task['id'], endpoint='check')
+
                         elif task['type'] == 'YOUTUBE_WATCH':
                             logger.info(f'{self.session_name} | Performing Youtube <y>{task["title"]}</y>')
                             answer = YOUTUBE_TASKS.get(task["title"], None)
@@ -323,20 +230,6 @@ class Tapper:
             logger.error(f"{self.session_name} | Unknown error while processing avatar task | Error: {e}")
             await asyncio.sleep(delay=3)
 
-    async def change_tg_nickname(self, name: str):
-        try:
-            if not self.tg_client.is_connected:
-                await self.tg_client.connect()
-
-            await self.tg_client.update_profile(first_name=name)
-            logger.info(f"{self.session_name} | Nickname changed to <lc>{name}</lc>")
-        except Exception as error:
-            logger.error(
-                f"<light-yellow>{self.session_name}</light-yellow> | Error updating profile nickname: {error}")
-        finally:
-            if self.tg_client.is_connected:
-                await self.tg_client.disconnect()
-
     async def get_user_exchange(self, http_client: aiohttp.ClientSession, retry=0):
         try:
             response = await http_client.get('https://api.catshouse.club/exchange-claim/user-request')
@@ -372,7 +265,7 @@ class Tapper:
                 try:
                     sleep_time = randint(settings.SLEEP_TIME[0], settings.SLEEP_TIME[1])
                     if time() - access_token_created_time >= token_live_time:
-                        tg_web_data = await self.get_tg_web_data(proxy=proxy)
+                        tg_web_data = await self.tg_session.get_tg_web_data()
                         if tg_web_data is None:
                             continue
 
@@ -437,13 +330,8 @@ class Tapper:
                     await asyncio.sleep(delay=randint(60, 120))
 
 
-def get_link_code() -> str:
-    return bytes([73, 82, 74, 51, 89, 116, 111, 122, 51, 67, 109, 105,
-                  56, 71, 97, 99, 45, 66, 88, 70, 79]).decode("utf-8")
-
-
-async def run_tapper(tg_client: Client, user_agent: str, proxy: str | None):
+async def run_tapper(tg_session: TGSession, user_agent: str, proxy: str | None):
     try:
-        await Tapper(tg_client=tg_client).run(user_agent=user_agent, proxy=proxy)
+        await Tapper(tg_session=tg_session).run(user_agent=user_agent, proxy=proxy)
     except InvalidSession:
-        logger.error(f"{tg_client.name} | Invalid Session")
+        logger.error(f"{tg_session.session_name} | Invalid Session")

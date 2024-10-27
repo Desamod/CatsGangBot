@@ -25,6 +25,12 @@ YOUTUBE_TASKS: dict[str, str] = {
     "Top Shocking Ways": 'ASSET',
     "Change Your Life!": 'BOUNTY',
     "FREE Money From Rich People!": 'BASKET',
-    "BLOCKCHAIN TIPS": 'BRIDGES'
+    "BLOCKCHAIN TIPS": 'BRIDGES',
+    "Earn on YouTube Anonymously!": 'CIPHER',
+    "Maximize Your Savings ": 'DUMPING',
+    "Make Money on YouTube!": 'CHARGEBACK',
+    "Earn Cash Back": 'DOTSAMA',
+    "Save Money on Shopping": 'COORDINATOR',
+    "Sell Your Photos Online": 'CONSENSUS'
 }
 

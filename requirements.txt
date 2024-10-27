@@ -34,3 +34,5 @@ yarl==1.9.4
 zope.interface==6.4.post2
 aiofiles~=24.1.0
 Brotli~=1.1.0
+opentele~=1.15.1
+Telethon~=1.37.0

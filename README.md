@@ -7,15 +7,15 @@
 > 🇷 🇺 README in russian available [here](README-RU.md)
 
 ## Features  
-| Feature                                                   | Supported |
-|-----------------------------------------------------------|:---------:|
-| Multithreading                                            |     ✅     |
-| Proxy binding to session                                  |     ✅     |
-| User-Agent binding to session                             |     ✅     |
-| Support for tdata / pyrogram .session / telethon .session |     ✅     |
-| Registration in bot                                       |     ✅     |
-| Auto-tasks                                                |     ✅     |
-| Daily rewards                                             |     ✅     |
+| Feature                                            | Supported |
+|----------------------------------------------------|:---------:|
+| Multithreading                                     |     ✅     |
+| Proxy binding to session                           |     ✅     |
+| User-Agent binding to session                      |     ✅     |
+| Support for pyrogram .session / telethon .session  |     ✅     |
+| Registration in bot                                |     ✅     |
+| Auto-tasks                                         |     ✅     |
+| Daily rewards                                      |     ✅     |
 
 
 
@@ -24,9 +24,9 @@
 |-------------------------|:---------------------------------------------------------------------------:|
 | **API_ID / API_HASH**   | Platform data from which to run the Telegram session (by default - android) |
 | **SLEEP_TIME**          |           Sleep time between cycles (by default - [7200, 10800])            |
-| **START_DELAY**         |            Delay between sessions at start (by default - [5, 25])           |
+| **START_DELAY**         |           Delay between sessions at start (by default - [5, 25])            |
 | **AUTO_TASK**           |                         Auto tasks (default - True)                         |
-| **JOIN_CHANNELS**       |              Auto-join for tg channels tasks (default - True)               |
+| **JOIN_CHANNELS**       |              Auto-join for tg channels tasks (default - False)              |
 | **REF_ID**              |                          Ref link for registration                          |
 
 ## Quick Start 📚
@@ -103,7 +103,7 @@ You can also use arguments for quick start, for example:
 
 ### Usages
 When you first launch the bot, create a session for it using the 'Creates a session' command. It will create a 'sessions' folder in which all accounts will be stored, as well as a file accounts.json with configurations.
-If you already have sessions, simply place them in a folder 'sessions' and run the clicker. During the startup process you will be able to configure the use of a proxy for each session.
+If you already have sessions (pyrogram / telethon), simply place them in a folder 'sessions' and run the clicker. During the startup process you will be able to configure the use of a proxy for each session.
 User-Agent is created automatically for each account.
 
 Here is an example of what accounts.json should look like:

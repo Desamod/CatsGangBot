@@ -7,8 +7,10 @@ from better_proxy import Proxy
 from bot.config import settings
 from bot.utils import logger
 from bot.core.tapper import run_tapper
-from bot.core.registrator import register_sessions, get_tg_client
+from bot.core.registrator import register_sessions
 from bot.utils.accounts import Accounts
+from bot.core.tg_manager import SessionManager
+
 
 start_text = """
 
@@ -58,11 +60,16 @@ async def process() -> None:
 
 async def run_tasks(accounts: [Any, Any, list]):
     tasks = []
+    manager = SessionManager(api_id=settings.API_ID,
+                             api_hash=settings.API_HASH,
+                             peer='catsgang_bot',
+                             short_name='join',
+                             start_param=settings.REF_ID)
     for account in accounts:
         session_name, user_agent, raw_proxy = account.values()
-        tg_client = await get_tg_client(session_name=session_name, proxy=raw_proxy)
+        tg_session = await manager.get_tg_session(session_name=session_name, proxy=raw_proxy)
         proxy = get_proxy(raw_proxy=raw_proxy)
-        tasks.append(asyncio.create_task(run_tapper(tg_client=tg_client, user_agent=user_agent, proxy=proxy)))
+        tasks.append(asyncio.create_task(run_tapper(tg_session=tg_session, user_agent=user_agent, proxy=proxy)))
         await asyncio.sleep(delay=randint(settings.START_DELAY[0], settings.START_DELAY[1]))
 
     await asyncio.gather(*tasks)

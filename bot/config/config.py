@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     SLEEP_TIME: list[int] = [7200, 10800]
     START_DELAY: list[int] = [5, 25]
     AUTO_TASK: bool = True
-    JOIN_TG_CHANNELS: bool = True
+    JOIN_TG_CHANNELS: bool = False
     AVATAR_TASK: bool = True
     CATS_PATH: str = 'cats'
     REF_ID: str = 'IRJ3Ytoz3Cmi8Gac-BXFO'
