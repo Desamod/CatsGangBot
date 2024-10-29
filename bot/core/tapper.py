@@ -93,15 +93,15 @@ class Tapper:
                 for task in tasks:
                     if not task['completed'] and not task['isPending'] and task['type'] not in settings.DISABLED_TASKS:
                         if task['type'] == 'NICKNAME_CHANGE':
-                            if '🐈‍⬛' in self.name:
+                            if '🐈‍⬛' in self.tg_session.name:
                                 result = await self.verify_task(http_client, task['id'], endpoint='check')
                                 if result:
                                     logger.info(f"{self.session_name} | Removing 🐈 from nickname")
-                                    name = self.name.split('🐈‍⬛')[0]
+                                    name = self.tg_session.name.split('🐈‍⬛')[0]
                                     await self.tg_session.change_tg_nickname(name=name)
                             else:
                                 logger.info(f"{self.session_name} | Performing <lc>{task['title']}</lc> task")
-                                cat_name = f'{self.name}🐈‍⬛'
+                                cat_name = f'{self.tg_session.name}🐈‍⬛'
                                 await self.tg_session.change_tg_nickname(name=cat_name)
                                 continue
                         elif task['type'] == 'SUBSCRIBE_TO_CHANNEL':
@@ -304,12 +304,13 @@ class Tapper:
                         logger.info(f"{self.session_name} | OG Pass: <y>{og_pass}</y>")
                         if avatar_info:
                             attempt_time = None
+                            max_attempts = 3 if og_pass else 1
+                            used_attempts = 0
                             if avatar_info['attemptTime'] is not None:
                                 attempt_time = avatar_info['attemptTime']
                                 parsed_time = datetime.strptime(attempt_time, '%Y-%m-%dT%H:%M:%S.%fZ').timestamp()
                                 delta_time = datetime.utcnow().timestamp() - parsed_time
                                 next_attempt_time = delta_time - timedelta(hours=24).total_seconds()
-                                max_attempts = 3 if og_pass else 1
                                 used_attempts = avatar_info['attemptsUsed'] if next_attempt_time < 0 else 0
                             if attempt_time is None or used_attempts < max_attempts:
                                 for attempt in range(max_attempts - used_attempts):
