@@ -39,6 +39,11 @@ YOUTUBE_TASKS: dict[str, str] = {
     "Small Business Ideas!!": 'CRYPTOASSET',
     "Videos Legally for YouTube Profit": 'CUSTODIAN',
     "Money on YouTube": 'DEFLATION',
-    "How Blockchain ACTUALLY Work": 'DIGITAL'
+    "How Blockchain ACTUALLY Work": 'DIGITAL',
+    "Earn Money with Amazon!!!": 'DIFFICULTY',
+    "Legally Reupload Videos": 'CRYPTOLOGY',
+    "Earn Online by Reuploading": 'CURRENCY',
+    "Blockchain Demystified": 'DRIVECHAIN',
+    "Amazon Success": 'DEFI'
 }
 
