@@ -14,9 +14,9 @@ YOUTUBE_TASKS: dict[str, str] = {
     "Productivity Tips!": 'BAKING',
     "Make $100,000 in 6 Months": 'MAINNET',
     "Easy Crypto Airdrops": 'MARKET',
-    "Job Without a Degree": 'LAMBO',
-    "Learned to Code!": 'LEDGER',
-    "Pinterest Affiliate Marketing": 'BITSTREAM',
+    "Job Without a Degree  ": 'LAMBO',
+    "Learned to Code !": 'LEDGER',
+    "Pinterest Affiliate Marketing ": 'BITSTREAM',
     "GET FREE MONEY NOW!": 'OPTION',
     "Start Earning Now!": 'BOTS',
     "EARN $30 PER WORD": 'BLOCK',
@@ -29,7 +29,7 @@ YOUTUBE_TASKS: dict[str, str] = {
     "Earn on YouTube Anonymously!": 'CIPHER',
     "Maximize Your Savings ": 'DUMPING',
     "Make Money on YouTube!": 'CHARGEBACK',
-    "Earn Cash Back": 'DOTSAMA',
+    "Earn Cash Back": 'CRYPTOJACKING',
     "Save Money on Shopping": 'COORDINATOR',
     "Sell Your Photos Online": 'CONSENSUS',
     "How to Reupload Free Videos?": 'CASH',
@@ -44,6 +44,12 @@ YOUTUBE_TASKS: dict[str, str] = {
     "Legally Reupload Videos": 'CRYPTOLOGY',
     "Earn Online by Reuploading": 'CURRENCY',
     "Blockchain Demystified": 'DRIVECHAIN',
-    "Amazon Success": 'DEFI'
+    "Amazon Success": 'DEFI',
+    "Protect Your Investments!": 'DUMP',
+    "Avoid Losing Money": 'CROWDLOAN',
+    "CRYPTO SCAMS": 'CORRECTION',
+    "Reupload FREE videos": 'CRYPTOLOGY',
+    "EARN Money!": 'CURRENCY',
+    "YouTube Niches for Earning Big!": "DELISTING"
 }
 
